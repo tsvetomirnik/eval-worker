@@ -1,28 +1,41 @@
 (function () {
   "use strict";
 
-  function getExpression(code) {
-    // TODO: Hide global variables
-    // https://developer.mozilla.org/en-US/docs/Web/API/DedicatedWorkerGlobalScope
+  var commands = {
+    'execute': function (data) {
+      var functionBody = generateFunctionBody(data.expression),
+        output;
+
+      try {
+        output = evalExpression(functionBody, data.args);
+        sendResult(data, output, null);
+      } catch (error) {
+        sendResult(data, null, error);
+      }
+    },
+    'kill': function () {
+      self.close();
+    }
+  }
+
+  // Communication
+  self.onmessage = function (e) {
+    var command = commands[e.data.command];
+    if (!command) {
+      throw new Error('Unknown command');
+    }
+    command(e.data.value);
+  }
+
+
+  function generateFunctionBody(code) {
     var globalsToHide = [
       'self',
-      'caches',
-      'console',
       'close',
-      'ctypto',
-      'location',
-      'navigator',
       'onmessage',
       'onerror',
-      'onrejectionhandled',
-      'onunhandledrejection',
-      'performance',
       'postMessage',
-      'PERSISTENT',
-      'TEMPORARY',
-      'indexedDB',
-      'importScripts',
-      'webkitIndexedDB'
+      'importScripts'
     ];
 
     var hideExpression = 'var ' + globalsToHide.join(',') + '=undefined;';
@@ -30,15 +43,11 @@
   }
 
 
-  /**
-   * @param {string} expression - Body of the function
-   * @param {Object} args - Associative array for the function arguments
-   */
-  self.execute = function (expression, args) {
+  function evalExpression(expression, args) {
     var argsNames = [],
       argsValues = [],
-      func,
-      funcDefinitionArgs;
+      funcDefinitionArgs,
+      func;
 
     args = args || {};
 
@@ -52,43 +61,22 @@
 
     func = Function.apply({}, funcDefinitionArgs);
     return func.apply({}, argsValues);
-  };
+  }
 
 
-  // Communication
-  self.addEventListener('message', function (e) {
-    switch (e.data.command) {
-      case 'execute':
-        self.executeCommand(e.data.value);
-        break;
-      case 'kill':
-        self.close();
-        break;
-      default:
-        throw new Error('Unknown command');
+  function sendResult(input, output, error) {
+    var result = {
+      input: input,
+      output: output
     };
-  }, false);
-  
-  
-  self.executeCommand = function (data) {
-     var expression = getExpression(data.code),
-      result;
 
-    try {
-      result = self.execute(expression, data.args);
-    } catch (error) {
-      return self.postMessage({
-        type: 'error',
-        value: {
-          error: {
-            message: error.message
-          }
-        }
-      });
+    if (error) {
+      result.error = {
+        message: error.message
+      };
     }
 
-    // Completed
-    self.postMessage({ type: 'result', value: { result: result } });
-  };
+    self.postMessage(result);
+  }
 
-}());
+} ());
