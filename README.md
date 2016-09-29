@@ -1,5 +1,5 @@
 # eval-worker
-Eval expression executed in web worker without access to global variables.  
+A simple Web Worker to evaluate JavaScript code in clean global contex.
 
 ## Example
 ```javascript
@@ -9,15 +9,20 @@ var worker = new Worker('src/eval-worker.js');
 worker.postMessage({
   command: 'execute',
   value: {
-    code: 'return (a + b) * 2;',
+    expression: 'return (a + b) * 2;',
     args: { a: 1, b: 2 }
   }
 });
 
 // Receive
 worker.addEventListener('message', function (e) {
-  if (e.data.type === 'result') {
-    alert(JSON.stringify(e.data.value.result));
+  // Error
+  if (e.data.error) {
+    alert(e.data.error.message);
+    return;
   }
+
+  // Success
+  alert(JSON.stringify(e.data.output));
 }, false);
 ```
