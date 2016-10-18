@@ -3,7 +3,7 @@ A simple Web Worker to evaluate JavaScript code in clean global contex.
 
 ## Example
 ```javascript
-var worker = new evalWorker.createInstance();
+var worker = evalWorker.createInstance();
 
 // Send
 worker.postMessage({
